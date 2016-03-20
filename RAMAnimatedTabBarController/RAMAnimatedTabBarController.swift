@@ -51,15 +51,16 @@ extension RAMAnimatedTabBarItem {
 
 public class RAMAnimatedTabBarItem: UITabBarItem {
     
-   @IBOutlet public var animation: RAMItemAnimation!
-
+    @IBOutlet public var animation: RAMItemAnimation!
+    
     public var textFont: UIFont = UIFont.systemFontOfSize(10)
     @IBInspectable public var textColor: UIColor = UIColor.blackColor()
     @IBInspectable public var iconColor: UIColor = UIColor.clearColor() // if alpha color is 0 color ignoring
-  
+    
     @IBInspectable var bgDefaultColor: UIColor = UIColor.clearColor() // background color
     @IBInspectable var bgSelectedColor: UIColor = UIColor.clearColor()
-
+    @IBInspectable var lineSelecitonColor: UIColor = UIColor.clearColor()
+    
     public var badge: RAMBadge? // use badgeValue to show badge
     
     public var iconView: (icon: UIImageView, textLabel: UILabel)?
@@ -74,7 +75,7 @@ public class RAMAnimatedTabBarItem: UITabBarItem {
     }
     
     public func deselectAnimation() {
-
+        
         guard animation != nil && iconView != nil else  {
             return
         }
@@ -90,7 +91,7 @@ public class RAMAnimatedTabBarItem: UITabBarItem {
         guard animation != nil && iconView != nil else  {
             return
         }
-
+        
         animation.selectedState(iconView!.icon, textLabel: iconView!.textLabel)
     }
 }
@@ -136,7 +137,7 @@ extension  RAMAnimatedTabBarController {
 
 
 public class RAMAnimatedTabBarController: UITabBarController {
-    
+    private var selectionView: UIView?
     // MARK: life circle
     
     override public func viewDidLoad() {
@@ -145,19 +146,33 @@ public class RAMAnimatedTabBarController: UITabBarController {
         let containers = createViewContainers()
         
         createCustomIcons(containers)
+        
+        createSelectionLine()
     }
     
     // MARK: create methods
+    
+    private func createSelectionLine() {
+        guard let tabBarItem = tabBar.items?.first as? RAMAnimatedTabBarItem else {
+            fatalError("items must inherit RAMAnimatedTabBarItem")
+        }
+        let width = tabBar.frame.width / CGFloat(tabBar.items!.count)
+        let rect = CGRect(x: 0, y: 0, width: width, height: 4)
+        selectionView = UIView(frame: rect)
+        selectionView!.backgroundColor = tabBarItem.lineSelecitonColor
+        tabBar.addSubview(selectionView!)
+        tabBar.bringSubviewToFront(selectionView!)
+    }
     
     private func createCustomIcons(containers : NSDictionary) {
         
         guard let items = tabBar.items as? [RAMAnimatedTabBarItem] else {
             fatalError("items must inherit RAMAnimatedTabBarItem")
         }
-    
+        
         var index = 0
         for item in items {
-        
+            
             guard let itemImage = item.image else {
                 fatalError("add image icon in UITabBarItem")
             }
@@ -169,7 +184,7 @@ public class RAMAnimatedTabBarController: UITabBarController {
             
             
             let renderMode = CGColorGetAlpha(item.iconColor.CGColor) == 0 ? UIImageRenderingMode.AlwaysOriginal :
-                                                                            UIImageRenderingMode.AlwaysTemplate
+                UIImageRenderingMode.AlwaysTemplate
             
             let icon = UIImageView(image: item.image?.imageWithRenderingMode(renderMode))
             icon.translatesAutoresizingMaskIntoConstraints = false
@@ -183,7 +198,7 @@ public class RAMAnimatedTabBarController: UITabBarController {
             textLabel.font = item.textFont
             textLabel.textAlignment = NSTextAlignment.Center
             textLabel.translatesAutoresizingMaskIntoConstraints = false
-
+            
             container.backgroundColor = (items as [RAMAnimatedTabBarItem])[index].bgDefaultColor
             
             container.addSubview(icon)
@@ -245,7 +260,7 @@ public class RAMAnimatedTabBarController: UITabBarController {
         view.addConstraint(constH)
     }
     
-    private func createViewContainers() -> NSDictionary {
+    private func createViewContainers() -> [String: AnyObject] {
         
         guard let items = tabBar.items else {
             fatalError("add items in tabBar")
@@ -268,7 +283,6 @@ public class RAMAnimatedTabBarController: UITabBarController {
             metrics: nil,
             views: (containersDict as [String : AnyObject]))
         view.addConstraints(constranints)
-        
         return containersDict
     }
     
@@ -324,31 +338,40 @@ public class RAMAnimatedTabBarController: UITabBarController {
         
         if let shouldSelect = delegate?.tabBarController?(self, shouldSelectViewController: controller)
             where !shouldSelect {
-            return
+                return
         }
-
+        
         if selectedIndex != currentIndex {
             let animationItem : RAMAnimatedTabBarItem = items[currentIndex]
             animationItem.playAnimation()
             
             let deselectItem = items[selectedIndex]
-
+            
             let containerPrevious : UIView = deselectItem.iconView!.icon.superview!
             containerPrevious.backgroundColor = items[currentIndex].bgDefaultColor
-
+            
             deselectItem.deselectAnimation()
-
+            
             let container : UIView = animationItem.iconView!.icon.superview!
             container.backgroundColor = items[currentIndex].bgSelectedColor
             
             selectedIndex = gestureView.tag
             delegate?.tabBarController?(self, didSelectViewController: self)
-
+            
+            animateSelectionToViewContainer(items[currentIndex], selectionIndex: currentIndex)
         } else if selectedIndex == currentIndex {
             
             if let navVC = self.viewControllers![selectedIndex] as? UINavigationController {
                 navVC.popToRootViewControllerAnimated(true)
             }
         }
+    }
+    
+    func animateSelectionToViewContainer(item: RAMAnimatedTabBarItem, selectionIndex: Int) {
+        guard let selectionLine = selectionView else { return }
+        UIView.animateWithDuration(0.3, delay: 0, options: .CurveEaseInOut, animations: { () -> Void in
+            selectionLine.backgroundColor = item.lineSelecitonColor
+            selectionLine.frame = CGRect(x: selectionLine.frame.width * CGFloat(selectionIndex), y: selectionLine.frame.origin.y, width: selectionLine.frame.width, height: selectionLine.frame.height)
+        }, completion: nil)
     }
 }
